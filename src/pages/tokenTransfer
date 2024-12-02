@@ -1,0 +1,67 @@
+import { ethers } from "ethers";
+
+// Assuming a basic ERC-20 token contract ABI (you may need to modify this ABI for your token contract)
+const ERC20_ABI = [
+  "function balanceOf(address owner) view returns (uint256)",
+  "function transfer(address recipient, uint256 amount) public returns (bool)",
+];
+
+// Connect to Ethereum Wallet using MetaMask or other Web3 provider
+export const connectWallet = async () => {
+  if (window.ethereum) {
+    try {
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      await provider.send("eth_requestAccounts", []); // Request access to the user's accounts
+      const signer = provider.getSigner();
+      const walletAddress = await signer.getAddress();
+      return walletAddress;
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      throw new Error("Failed to connect wallet.");
+    }
+  } else {
+    throw new Error("MetaMask or another Ethereum wallet is not installed.");
+  }
+};
+
+// Check token balance of the connected wallet
+export const checkBalance = async (tokenAddress, walletAddress) => {
+  if (!tokenAddress || !walletAddress) {
+    throw new Error("Token address and wallet address are required.");
+  }
+
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, provider);
+    const balance = await contract.balanceOf(walletAddress);
+    return ethers.utils.formatUnits(balance, 18); // Format balance with 18 decimal places (ERC20 standard)
+  } catch (error) {
+    console.error("Error checking balance:", error);
+    throw new Error("Failed to fetch balance.");
+  }
+};
+
+// Transfer tokens from one address to another
+export const transferTokens = async (tokenAddress, senderAddress, recipientAddress, amount) => {
+  if (!tokenAddress || !senderAddress || !recipientAddress || !amount) {
+    throw new Error("All parameters (token address, sender, recipient, amount) are required.");
+  }
+
+  try {
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = provider.getSigner(); // Use the signer to send the transaction
+    const contract = new ethers.Contract(tokenAddress, ERC20_ABI, signer);
+
+    // Convert amount to the token's smallest unit (for example, 18 decimals)
+    const amountInUnits = ethers.utils.parseUnits(amount, 18);
+
+    // Transfer the tokens
+    const tx = await contract.transfer(recipientAddress, amountInUnits);
+    await tx.wait(); // Wait for the transaction to be mined
+
+    return `Transaction successful! Hash: ${tx.hash}`;
+  } catch (error) {
+    console.error("Error transferring tokens:", error);
+    throw new Error("Failed to transfer tokens.");
+  }
+};
